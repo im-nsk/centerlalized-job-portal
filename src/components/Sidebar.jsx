@@ -93,7 +93,7 @@ export default function Sidebar({
       <div style={{ padding:'12px 16px', borderTop:'1px solid var(--hairline)', fontSize: 11, color:'var(--ink-4)' }}>
         <div style={{ display:'flex', alignItems:'center', gap: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius:'50%', background:'#10B981' }}/>
-          Synced locally
+          Synced to cloud
         </div>
       </div>
     </aside>

@@ -1,9 +1,10 @@
 import { useRef } from 'react';
-import { Download, Upload, Tag, Plus, Hash, X, Trash2 } from 'lucide-react';
+import { Download, Upload, Tag, Plus, Hash, X, Trash2, LogOut, User } from 'lucide-react';
 import { defaultState } from '../data/companies.js';
+import { normalizeState } from '../utils/stateMigration.js';
 import ExportButton from './ExportButton.jsx';
 
-export default function SettingsView({ state, setState, onToast }) {
+export default function SettingsView({ state, setState, onToast, user, onSignOut }) {
   const fileInputRef = useRef(null);
 
   const importJSON = (e) => {
@@ -13,7 +14,7 @@ export default function SettingsView({ state, setState, onToast }) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const parsed = JSON.parse(ev.target.result);
+        const parsed = normalizeState(JSON.parse(ev.target.result));
         if (!parsed.companies) throw new Error('Invalid backup');
         setState(parsed);
         onToast('Backup restored');
@@ -54,6 +55,19 @@ export default function SettingsView({ state, setState, onToast }) {
         <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing:'-0.02em', margin: 0 }}>Settings</h1>
         <p style={{ color:'var(--ink-3)', fontSize: 13, margin: '4px 0 0' }}>Export, restore, customize</p>
       </div>
+
+      {user && (
+        <div className="jcc-card" style={{ padding: 20, marginBottom: 16 }}>
+          <div style={{ display:'flex', alignItems:'center', gap: 8, marginBottom: 6 }}>
+            <User size={15} style={{ color:'var(--primary)' }}/>
+            <h3 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Account</h3>
+          </div>
+          <p style={{ fontSize: 12.5, color:'var(--ink-3)', margin:'0 0 14px' }}>
+            Signed in as <strong>{user.email}</strong>. Data syncs automatically to Supabase.
+          </p>
+          <button className="jcc-btn" onClick={onSignOut}><LogOut size={13}/> Sign out</button>
+        </div>
+      )}
 
       <div className="jcc-card" style={{ padding: 20, marginBottom: 16 }}>
         <div style={{ display:'flex', alignItems:'center', gap: 8, marginBottom: 6 }}>

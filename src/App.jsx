@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useStorage } from './utils/storage.js';
 import { GlobalStyles } from './components/ui/GlobalStyles.jsx';
 import { Toast } from './components/ui/Toast.jsx';
+import LoginScreen from './components/LoginScreen.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import GlobalSearch from './components/GlobalSearch.jsx';
 import Dashboard from './components/Dashboard.jsx';
@@ -14,13 +15,17 @@ import NotesModal from './components/NotesModal.jsx';
 import AddCompanyModal from './components/AddCompanyModal.jsx';
 
 export default function App() {
-  const [state, setState, loaded] = useStorage();
+  const {
+    state, setState, loaded, authReady, user, signInWithGoogle, signOut,
+  } = useStorage();
   const [tab, setTab] = useState('dashboard');
   const [openCompanyId, setOpenCompanyId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [toast, setToast] = useState('');
   const [globalQuery, setGlobalQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const [authError, setAuthError] = useState('');
 
   useEffect(() => {
     const h = (e) => {
@@ -83,11 +88,50 @@ export default function App() {
 
   const handleToastDone = useCallback(() => setToast(''), []);
 
-  if (!loaded || !state) {
+  const handleGoogleSignIn = useCallback(async () => {
+    setAuthError('');
+    setSigningIn(true);
+    try {
+      await signInWithGoogle();
+    } catch (e) {
+      setAuthError(e.message || 'Sign-in failed');
+      setSigningIn(false);
+    }
+  }, [signInWithGoogle]);
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      await signOut();
+      setToast('Signed out');
+    } catch (e) {
+      setToast('Sign out failed');
+    }
+  }, [signOut]);
+
+  if (!authReady) {
     return (
       <div className="jcc" style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--surface-2)' }}>
         <GlobalStyles/>
         <div style={{ fontSize: 13, color:'var(--ink-3)' }}>Loading…</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <LoginScreen
+        onGoogleSignIn={handleGoogleSignIn}
+        error={authError}
+        signingIn={signingIn}
+      />
+    );
+  }
+
+  if (!loaded || !state) {
+    return (
+      <div className="jcc" style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--surface-2)' }}>
+        <GlobalStyles/>
+        <div style={{ fontSize: 13, color:'var(--ink-3)' }}>Loading your data…</div>
       </div>
     );
   }
@@ -112,7 +156,7 @@ export default function App() {
         {tab === 'pipeline'   && <PipelineView state={state} setState={setState} onOpenCompany={setOpenCompanyId}/>}
         {tab === 'prep'       && <PrepView state={state} setState={setState}/>}
         {tab === 'templates'  && <TemplatesView state={state} setState={setState} onToast={setToast}/>}
-        {tab === 'settings'   && <SettingsView state={state} setState={setState} onToast={setToast}/>}
+        {tab === 'settings'   && <SettingsView state={state} setState={setState} onToast={setToast} user={user} onSignOut={handleSignOut}/>}
       </main>
 
       {openCompany && (
