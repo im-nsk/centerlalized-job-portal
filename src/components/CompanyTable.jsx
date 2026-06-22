@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { Bell, Plus, Inbox } from 'lucide-react';
 import { TIERS } from '../data/constants.js';
 import { liEmployees, liRecruiters } from '../utils/helpers.js';
 import { openSmartCareerSearch } from '../utils/careerSearch.js';
