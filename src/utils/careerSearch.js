@@ -3,7 +3,7 @@ import {
   PROFILE_ROLE_PRIORITY,
   SMART_SEARCH_ROLES,
 } from '../data/roles.js';
-import { openExternalUrl } from './externalNav.js';
+import { openExternalUrl, captureScrollBeforeAction } from './externalNav.js';
 
 const QUERY_PARAM_NAMES = [
   'q', 'query', 'keywords', 'search', 'base_query', 'jobsearch', '_search',
@@ -197,6 +197,9 @@ export async function fetchRoleMatches(company, preferences) {
 export async function openSmartCareerSearch(company, preferences) {
   const { url, query, terms } = buildCareerSearchUrl(company, preferences);
   if (!url) return null;
+
+  // Capture scroll before async API work so position is saved even if user waits
+  captureScrollBeforeAction();
 
   const apiResult = await fetchRoleMatches(company, preferences);
 

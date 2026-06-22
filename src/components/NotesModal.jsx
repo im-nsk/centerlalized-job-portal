@@ -6,7 +6,7 @@ import {
 import { STATUSES, TIERS, COMP_TIERS } from '../data/constants.js';
 import { fmtDate, daysSince, todayISO, liEmployees, liRecruiters, cls } from '../utils/helpers.js';
 import { openSmartCareerSearch } from '../utils/careerSearch.js';
-import { openExternalUrl } from '../utils/externalNav.js';
+import { openExternalUrl, captureScrollBeforeAction } from '../utils/externalNav.js';
 import { TierBadge } from './ui/TierBadge.jsx';
 import { StatusBadge } from './ui/StatusBadge.jsx';
 import { Pill } from './ui/Pill.jsx';
@@ -50,6 +50,7 @@ export default function NotesModal({
       onToast?.('No career portal URL configured');
       return;
     }
+    captureScrollBeforeAction();
     setRolesLoading(true);
     try {
       const meta = await openSmartCareerSearch(draft, prefs);

@@ -3,7 +3,7 @@ import { Plus, Inbox } from 'lucide-react';
 import { TIERS } from '../data/constants.js';
 import { liEmployees, liRecruiters } from '../utils/helpers.js';
 import { openSmartCareerSearch } from '../utils/careerSearch.js';
-import { openExternalUrl } from '../utils/externalNav.js';
+import { openExternalUrl, captureScrollBeforeAction } from '../utils/externalNav.js';
 import Filters from './Filters.jsx';
 import CompanyCard from './CompanyCard.jsx';
 import RoleFocusSelector from './RoleFocusSelector.jsx';
@@ -48,6 +48,7 @@ export default function CompanyTable({
       onToast('No career portal URL configured');
       return;
     }
+    captureScrollBeforeAction();
     setLoadingCareerId(c.id);
     onToast('Opening smart role search…');
     try {
