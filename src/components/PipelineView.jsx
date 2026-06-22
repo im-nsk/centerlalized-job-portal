@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Bell } from 'lucide-react';
 import { getStatus, daysSince, todayISO } from '../utils/helpers.js';
+import { mergeCompanyWithActivity } from '../utils/activityLog.js';
 import { Pill } from './ui/Pill.jsx';
 import { TierBadge } from './ui/TierBadge.jsx';
 
@@ -21,12 +22,16 @@ export default function PipelineView({ state, setState, onOpenCompany }) {
   }, [companies]);
 
   const moveCard = (id, newStatus) => {
-    setState(s => ({
+    setState((s) => ({
       ...s,
-      companies: s.companies.map(c => c.id === id ? {
-        ...c, status: newStatus,
-        appliedDate: c.appliedDate || (newStatus !== 'not_started' ? todayISO() : c.appliedDate)
-      } : c)
+      companies: s.companies.map((c) => {
+        if (c.id !== id) return c;
+        const patch = {
+          status: newStatus,
+          appliedDate: c.appliedDate || (newStatus !== 'not_started' ? todayISO() : c.appliedDate),
+        };
+        return mergeCompanyWithActivity(c, patch);
+      }),
     }));
   };
 

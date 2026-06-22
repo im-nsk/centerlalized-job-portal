@@ -1,24 +1,30 @@
 import { useMemo } from 'react';
 import {
   Building2, Send, Activity, Briefcase, CheckCircle2, Bell, TrendingUp, Star,
-  ChevronRight, CircleDot,
+  ChevronRight, XCircle, Clock, Search, ArrowRight,
 } from 'lucide-react';
-import { getStatus, daysSince } from '../utils/helpers.js';
+import { daysSince, fmtDate } from '../utils/helpers.js';
+import { buildRecentActivity, isFollowUpDue } from '../utils/companyFilters.js';
 import { Pill } from './ui/Pill.jsx';
 import { StatusBadge } from './ui/StatusBadge.jsx';
 
-export default function Dashboard({ state, onJump, onOpenCompany }) {
+const ACTIVITY_ICONS = {
+  applied: Send,
+  followup: Bell,
+  search: Search,
+};
+
+export default function Dashboard({ state, onJump, onOpenCompany, onViewCompanies }) {
   const { companies } = state;
 
   const stats = useMemo(() => {
     const applied   = companies.filter(c => !['not_started','archived'].includes(c.status)).length;
     const interview = companies.filter(c => ['interview_sched','interviewing'].includes(c.status)).length;
     const offers    = companies.filter(c => c.status === 'offer').length;
-    const pending   = companies.filter(c => ['applied','referral_req','referral_rcvd'].includes(c.status)).length;
     const rejected  = companies.filter(c => c.status === 'rejected').length;
     const today = new Date(); today.setHours(0,0,0,0);
-    const followups = companies.filter(c => c.followUpDate && new Date(c.followUpDate) <= today && !['offer','rejected','archived'].includes(c.status));
-    return { total: companies.length, applied, interview, offers, pending, rejected, followups };
+    const followups = companies.filter(c => isFollowUpDue(c));
+    return { total: companies.length, applied, interview, offers, rejected, followups };
   }, [companies]);
 
   const velocity = useMemo(() => {
@@ -52,12 +58,17 @@ export default function Dashboard({ state, onJump, onOpenCompany }) {
     companies.filter(c => c.status === 'not_started').sort((a,b) => b.priorityScore - a.priorityScore).slice(0, 5)
   , [companies]);
 
-  const recent = useMemo(() =>
-    [...companies].filter(c => c.appliedDate).sort((a,b) => new Date(b.appliedDate) - new Date(a.appliedDate)).slice(0, 6)
-  , [companies]);
+  const recentActivity = useMemo(() => buildRecentActivity(companies, 10), [companies]);
 
   const StatCard = ({ icon: Icon, label, value, hint, accent, onClick }) => (
-    <div className="jcc-card jcc-card-hover" style={{ padding: 18, cursor: onClick ? 'pointer' : 'default' }} onClick={onClick}>
+    <div
+      className="jcc-card jcc-card-hover"
+      style={{ padding: 18, cursor: onClick ? 'pointer' : 'default' }}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+    >
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 14 }}>
         <span style={{ color:'var(--ink-3)', fontSize:12, fontWeight:500, letterSpacing:'.02em', textTransform:'uppercase' }}>{label}</span>
         <Icon size={15} style={{ color: accent || 'var(--ink-4)' }}/>
@@ -76,19 +87,21 @@ export default function Dashboard({ state, onJump, onOpenCompany }) {
         <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em', margin: 0 }}>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, Nishant.</h1>
         <p style={{ color:'var(--ink-3)', fontSize: 14, marginTop: 6, marginBottom: 0 }}>
           {stats.followups.length > 0
-            ? <>You have <strong style={{ color:'#D97706' }}>{stats.followups.length} follow-up{stats.followups.length>1?'s':''} due today.</strong> {stats.interview > 0 && `${stats.interview} interview${stats.interview>1?'s':''} in motion.`}</>
-            : <>{stats.applied} active application{stats.applied!==1?'s':''} · {stats.pending} pending response · {topUntouched.length} priority companies untouched.</>
+            ? <>You have <strong style={{ color:'#D97706' }}>{stats.followups.length} follow-up{stats.followups.length>1?'s':''} due.</strong>{' '}
+              <button type="button" className="jcc-link" style={{ background:'none', border:'none', padding:0, cursor:'pointer', font:'inherit' }} onClick={() => onViewCompanies('followup')}>View queue →</button>
+            </>
+            : <>{stats.applied} active application{stats.applied!==1?'s':''} · {stats.interview} in interviews · {topUntouched.length} priority targets untouched.</>
           }
         </p>
       </div>
 
       <div className="jcc-stat-grid">
-        <StatCard icon={Building2}    label="Companies"   value={stats.total}     hint="In database"                     accent="var(--primary)" onClick={() => onJump('companies')} />
-        <StatCard icon={Send}         label="Applied"     value={stats.applied}   hint={`${Math.round(stats.applied/stats.total*100) || 0}% of database`} accent="var(--secondary)" />
-        <StatCard icon={Activity}     label="Pending"     value={stats.pending}   hint="Awaiting response"               accent="#A855F7" />
-        <StatCard icon={Briefcase}    label="Interviews"  value={stats.interview} hint="In progress"                     accent="#D97706" onClick={() => onJump('pipeline')} />
-        <StatCard icon={CheckCircle2} label="Offers"      value={stats.offers}    hint="Live offers"                     accent="#059669" />
-        <StatCard icon={Bell}         label="Follow-ups"  value={stats.followups.length} hint="Due today"                       accent={stats.followups.length > 0 ? '#D97706' : 'var(--ink-4)'} />
+        <StatCard icon={Building2}    label="Companies"   value={stats.total}     hint="View all"                        accent="var(--primary)" onClick={() => onViewCompanies('all')} />
+        <StatCard icon={Send}         label="Applied"     value={stats.applied}   hint="Active applications"             accent="var(--secondary)" onClick={() => onViewCompanies('applied')} />
+        <StatCard icon={Briefcase}    label="Interviews"  value={stats.interview} hint="In progress"                     accent="#D97706" onClick={() => onViewCompanies('interview')} />
+        <StatCard icon={Bell}         label="Follow-ups"  value={stats.followups.length} hint="Due or overdue"            accent={stats.followups.length > 0 ? '#D97706' : 'var(--ink-4)'} onClick={() => onViewCompanies('followup')} />
+        <StatCard icon={CheckCircle2} label="Offers"      value={stats.offers}    hint="Live offers"                     accent="#059669" onClick={() => onViewCompanies('offer')} />
+        <StatCard icon={XCircle}      label="Rejected"    value={stats.rejected}  hint="Closed applications"             accent="#DC2626" onClick={() => onViewCompanies('rejected')} />
       </div>
 
       <div className="jcc-grid-2col">
@@ -153,6 +166,72 @@ export default function Dashboard({ state, onJump, onOpenCompany }) {
         </div>
       </div>
 
+      <div className="jcc-card" style={{ padding: 20, marginBottom: 16 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 14 }}>
+          <div>
+            <h3 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Recent activity</h3>
+            <p style={{ fontSize: 12, color:'var(--ink-3)', margin: '2px 0 0' }}>Applications, follow-ups, and role searches</p>
+          </div>
+          <button
+            type="button"
+            className="jcc-btn jcc-btn-sm jcc-btn-ghost"
+            onClick={() => onViewCompanies('applied')}
+          >
+            View all <ArrowRight size={13}/>
+          </button>
+        </div>
+        {recentActivity.length === 0 ? (
+          <div style={{ color:'var(--ink-3)', fontSize: 13, padding:'12px 0' }}>
+            No activity yet. Apply to your first company to see updates here.
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column' }}>
+            {recentActivity.map((item) => {
+              const Icon = ACTIVITY_ICONS[item.type] || Activity;
+              const due = item.type === 'followup' && isFollowUpDue(item.company);
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => onOpenCompany(item.company.id)}
+                  className="jcc-list-row"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && onOpenCompany(item.company.id)}
+                >
+                  <div style={{ display:'flex', alignItems:'center', gap: 12, minWidth: 0 }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                      background: due ? '#FEF3C7' : 'var(--surface-3)',
+                      color: due ? '#D97706' : 'var(--ink-3)',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                    }}>
+                      <Icon size={13}/>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 550, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.company.name}</div>
+                      <div style={{ fontSize: 11.5, color:'var(--ink-3)', display:'flex', alignItems:'center', gap: 6 }}>
+                        <span>{item.label}</span>
+                        <span style={{ color:'var(--ink-4)' }}>·</span>
+                        <Clock size={10}/>
+                        <span>{fmtDate(item.date)}</span>
+                        {item.type === 'applied' && item.company.appliedDate && (
+                          <span style={{ color:'var(--ink-4)' }}>({daysSince(item.company.appliedDate) === 0 ? 'today' : `${daysSince(item.company.appliedDate)}d ago`})</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap: 8, flexShrink: 0 }}>
+                    {due && <Pill color="#92400E" bg="#FEF3C7" border="#FDE68A">Due</Pill>}
+                    <StatusBadge statusId={item.company.status}/>
+                    <ChevronRight size={14} style={{ color:'var(--ink-4)' }}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <div className="jcc-grid-2col-equal">
         <div className="jcc-card" style={{ padding: 20 }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 14 }}>
@@ -160,11 +239,11 @@ export default function Dashboard({ state, onJump, onOpenCompany }) {
             <Star size={14} style={{ color:'#D97706' }}/>
           </div>
           {topUntouched.length === 0 ? (
-            <div style={{ color:'var(--ink-3)', fontSize: 13, padding:'12px 0' }}>You're working through everything. 🎯</div>
+            <div style={{ color:'var(--ink-3)', fontSize: 13, padding:'12px 0' }}>You're working through everything.</div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column' }}>
               {topUntouched.map(c => (
-                <div key={c.id} onClick={() => onOpenCompany(c.id)} className="jcc-list-row">
+                <div key={c.id} onClick={() => onOpenCompany(c.id)} className="jcc-list-row" role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onOpenCompany(c.id)}>
                   <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
                     <div style={{
                       width: 30, height: 30, borderRadius: 8, background: 'var(--primary-50)',
@@ -189,30 +268,36 @@ export default function Dashboard({ state, onJump, onOpenCompany }) {
 
         <div className="jcc-card" style={{ padding: 20 }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 14 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Recent activity</h3>
+            <h3 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Quick actions</h3>
             <Activity size={14} style={{ color:'var(--ink-4)' }}/>
           </div>
-          {recent.length === 0 ? (
-            <div style={{ color:'var(--ink-3)', fontSize: 13, padding:'12px 0' }}>No applications yet. Apply to your first company to see velocity here.</div>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column' }}>
-              {recent.map(c => {
-                const days = daysSince(c.appliedDate);
-                return (
-                  <div key={c.id} onClick={() => onOpenCompany(c.id)} className="jcc-list-row">
-                    <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
-                      <CircleDot size={14} style={{ color: getStatus(c.status).color }}/>
-                      <div>
-                        <div style={{ fontSize: 13.5, fontWeight: 550 }}>{c.name}</div>
-                        <div style={{ fontSize: 11.5, color:'var(--ink-3)' }}>Applied {days === 0 ? 'today' : `${days}d ago`}</div>
-                      </div>
-                    </div>
-                    <StatusBadge statusId={c.status}/>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <div style={{ display:'flex', flexDirection:'column', gap: 8 }}>
+            {[
+              { label: 'Follow-up queue', preset: 'followup', hint: `${stats.followups.length} due`, accent: '#D97706' },
+              { label: 'Active applications', preset: 'applied', hint: `${stats.applied} companies`, accent: 'var(--secondary)' },
+              { label: 'Interview pipeline', preset: 'interview', hint: `${stats.interview} in progress`, accent: '#D97706' },
+              { label: 'Live offers', preset: 'offer', hint: `${stats.offers} offer${stats.offers !== 1 ? 's' : ''}`, accent: '#059669' },
+            ].map((action) => (
+              <button
+                key={action.preset}
+                type="button"
+                className="jcc-card-interactive"
+                onClick={() => onViewCompanies(action.preset)}
+                style={{
+                  display:'flex', alignItems:'center', justifyContent:'space-between',
+                  padding:'12px 14px', borderRadius: 9, border:'1px solid var(--hairline)',
+                  background:'var(--surface)', cursor:'pointer', textAlign:'left', width:'100%',
+                  fontFamily:'inherit',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 550, color:'var(--ink)' }}>{action.label}</div>
+                  <div style={{ fontSize: 11.5, color:'var(--ink-3)', marginTop: 2 }}>{action.hint}</div>
+                </div>
+                <ChevronRight size={14} style={{ color: action.accent }}/>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

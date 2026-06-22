@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { cls } from '../utils/helpers.js';
 import RoleFocusSelector from './RoleFocusSelector.jsx';
+import SyncStatusIndicator from './SyncStatusIndicator.jsx';
 
 function NavItem({ id, icon: Icon, label, count, tab, setTab, onNavigate }) {
   const handleClick = () => {
@@ -24,7 +25,7 @@ function NavItem({ id, icon: Icon, label, count, tab, setTab, onNavigate }) {
 
 export default function Sidebar({
   tab, setTab, state, setState, followupsDue, interviewsActive, onShowSearch,
-  mobileOpen, onCloseMobile,
+  onOpenFollowUpQueue, mobileOpen, onCloseMobile, syncStatus, lastSavedAt,
 }) {
   const prefs = state.searchPreferences || { roleFocus: 'data_plus_ai', smartSearchMode: true };
 
@@ -82,7 +83,7 @@ export default function Sidebar({
 
         {followupsDue > 0 && (
           <div style={{ marginTop:'auto', padding: 12, marginBottom: 6 }}>
-            <div onClick={() => { setTab('pipeline'); onCloseMobile?.(); }} className="jcc-card-interactive" style={{
+            <div onClick={() => { onOpenFollowUpQueue?.(); setTab('companies'); onCloseMobile?.(); }} className="jcc-card-interactive" style={{
               background:'#FEF3C7', borderRadius: 9, padding: 12,
               border:'1px solid #FDE68A', transition: 'transform .12s'
             }}>
@@ -98,11 +99,8 @@ export default function Sidebar({
         )}
       </nav>
 
-      <div style={{ padding:'12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', borderTop:'1px solid var(--hairline)', fontSize: 11, color:'var(--ink-4)' }}>
-        <div style={{ display:'flex', alignItems:'center', gap: 6 }}>
-          <div style={{ width: 6, height: 6, borderRadius:'50%', background:'#10B981' }}/>
-          Synced to cloud
-        </div>
+      <div style={{ padding:'12px 16px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))', borderTop:'1px solid var(--hairline)' }}>
+        <SyncStatusIndicator syncStatus={syncStatus} lastSavedAt={lastSavedAt}/>
       </div>
     </aside>
   );

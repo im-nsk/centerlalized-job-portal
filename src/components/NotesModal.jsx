@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import {
-  X, ExternalLink, Users, UserSearch, Send, Inbox, Target, GraduationCap, FileText, Edit3,
-  MapPin, Hash, Check, Sparkles, Trash2,
+  X, Users, UserSearch, Send, Inbox, Target, GraduationCap, FileText, Edit3,
+  MapPin, Hash, Check, Sparkles, Trash2, History,
 } from 'lucide-react';
 import { STATUSES, TIERS, COMP_TIERS } from '../data/constants.js';
 import { fmtDate, daysSince, todayISO, liEmployees, liRecruiters, cls } from '../utils/helpers.js';
+import { mergeCompanyWithActivity } from '../utils/activityLog.js';
 import { openSmartCareerSearch } from '../utils/careerSearch.js';
 import { openExternalUrl, captureScrollBeforeAction } from '../utils/externalNav.js';
+import ActivityTimeline from './ActivityTimeline.jsx';
 import { TierBadge } from './ui/TierBadge.jsx';
 import { StatusBadge } from './ui/StatusBadge.jsx';
 import { Pill } from './ui/Pill.jsx';
@@ -18,14 +20,19 @@ import { LoadingSpinner } from './ui/LoadingSpinner.jsx';
 export default function NotesModal({
   company, allTags, searchPreferences, onClose, onUpdate, onDelete, onToast,
 }) {
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState('activity');
   const [draft, setDraft] = useState(company);
   const [rolesLoading, setRolesLoading] = useState(false);
 
-  useEffect(() => { setDraft(company); }, [company?.id]);
+  useEffect(() => { setDraft(company); setTab('activity'); }, [company?.id]);
 
   const update = (patch) => {
-    const next = { ...draft, ...patch };
+    const next = mergeCompanyWithActivity(draft, patch);
+    setDraft(next);
+    onUpdate(next);
+  };
+
+  const replaceCompany = (next) => {
     setDraft(next);
     onUpdate(next);
   };
@@ -40,7 +47,10 @@ export default function NotesModal({
   };
 
   const markApplied = () => {
-    update({ status: 'applied', appliedDate: draft.appliedDate || todayISO() });
+    update({
+      status: 'applied',
+      appliedDate: draft.appliedDate || todayISO(),
+    });
   };
 
   const prefs = searchPreferences || { roleFocus: 'data_plus_ai', smartSearchMode: true };
@@ -96,11 +106,12 @@ export default function NotesModal({
 
         <div className="jcc-modal-tabs">
           {[
-            { id:'overview', label:'Overview', icon: Inbox },
-            { id:'tracker',  label:'Tracker',  icon: Target },
-            { id:'prep',     label:'Prep',     icon: GraduationCap },
-            { id:'notes',    label:'Notes',    icon: FileText },
-            { id:'edit',     label:'Edit',     icon: Edit3 },
+            { id:'activity',  label:'Activity',  icon: History },
+            { id:'overview',  label:'Overview',  icon: Inbox },
+            { id:'tracker',   label:'Tracker',   icon: Target },
+            { id:'prep',      label:'Prep',      icon: GraduationCap },
+            { id:'notes',     label:'Notes',     icon: FileText },
+            { id:'edit',      label:'Edit',      icon: Edit3 },
           ].map(t => (
             <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cls('jcc-modal-tab', tab === t.id && 'jcc-modal-tab--active')}>
               <t.icon size={13}/> {t.label}
@@ -109,8 +120,25 @@ export default function NotesModal({
         </div>
 
         <div className="jcc-scroll" style={{ overflow:'auto', flex: 1, padding: 24 }}>
+          {tab === 'activity' && (
+            <ActivityTimeline company={draft} onUpdate={replaceCompany}/>
+          )}
+
           {tab === 'overview' && (
             <div style={{ display:'flex', flexDirection:'column', gap: 18 }}>
+              <ActivityTimeline company={draft} onUpdate={replaceCompany} compact maxItems={3}/>
+
+              <div style={{ borderTop: '1px solid var(--hairline)', paddingTop: 4 }}>
+                <button
+                  type="button"
+                  className="jcc-btn jcc-btn-ghost jcc-btn-sm"
+                  onClick={() => setTab('activity')}
+                  style={{ marginBottom: 12 }}
+                >
+                  View full timeline →
+                </button>
+              </div>
+
               <RoleSearchStats
                 roleSearch={draft.roleSearch}
                 smartSearchMode={prefs.smartSearchMode}

@@ -1,6 +1,7 @@
 import { STORAGE_KEY } from '../data/constants.js';
 import { SEED_COMPANIES, buildCompany, defaultState } from '../data/companies.js';
 import { DEFAULT_SEARCH_PREFERENCES, DEFAULT_ROLE_SEARCH_META } from '../data/roles.js';
+import { backfillActivityLog } from './activityLog.js';
 
 const MIGRATION_FLAG = 'jcc_supabase_migrated';
 
@@ -20,6 +21,7 @@ export function normalizeState(raw) {
   parsed.companies = parsed.companies.map((c) => ({
     ...c,
     roleSearch: { ...DEFAULT_ROLE_SEARCH_META, ...(c.roleSearch || {}) },
+    activityLog: backfillActivityLog({ ...c, activityLog: c.activityLog || [] }),
   }));
 
   parsed.searchPreferences = {
@@ -32,7 +34,7 @@ export function normalizeState(raw) {
   if (!parsed.templates) parsed.templates = defaultState().templates;
   if (!parsed.customGroups) parsed.customGroups = [];
 
-  parsed.schemaVersion = 3;
+  parsed.schemaVersion = 4;
   return parsed;
 }
 

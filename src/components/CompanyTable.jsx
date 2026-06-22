@@ -1,21 +1,24 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Plus, Inbox } from 'lucide-react';
 import { TIERS } from '../data/constants.js';
 import { liEmployees, liRecruiters } from '../utils/helpers.js';
 import { openSmartCareerSearch } from '../utils/careerSearch.js';
 import { openExternalUrl, captureScrollBeforeAction } from '../utils/externalNav.js';
+import { mergeCompanyWithActivity } from '../utils/activityLog.js';
+import {
+  filterCompanies,
+  getFilterSummary,
+  hasActiveFilters,
+  SORT_LABELS,
+} from '../utils/companyFilters.js';
 import Filters from './Filters.jsx';
 import CompanyCard from './CompanyCard.jsx';
 import RoleFocusSelector from './RoleFocusSelector.jsx';
 
 export default function CompanyTable({
   state, setState, onOpenCompany, onAddCompany, onToast,
+  filters, setFilters, onClearFilters, onOpenFollowUpQueue,
 }) {
   const { companies, searchPreferences } = state;
-  const [query, setQuery] = useState('');
-  const [tierFilter, setTierFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('priority');
   const [loadingCareerId, setLoadingCareerId] = useState(null);
 
   const prefs = searchPreferences || { roleFocus: 'data_plus_ai', smartSearchMode: true };
@@ -24,24 +27,23 @@ export default function CompanyTable({
     setState((s) => ({ ...s, searchPreferences: next }));
   }, [setState]);
 
-  const filtered = useMemo(() => {
-    let r = companies;
-    if (tierFilter !== 'all') r = r.filter(c => c.tier === tierFilter);
-    if (statusFilter !== 'all') r = r.filter(c => c.status === statusFilter);
-    if (query) {
-      const q = query.toLowerCase();
-      r = r.filter(c => c.name.toLowerCase().includes(q) || (c.location||'').toLowerCase().includes(q) || (c.tags||[]).some(t => t.toLowerCase().includes(q)));
-    }
-    if (sortBy === 'priority') r = [...r].sort((a,b) => b.priorityScore - a.priorityScore);
-    if (sortBy === 'name')     r = [...r].sort((a,b) => a.name.localeCompare(b.name));
-    if (sortBy === 'recent')   r = [...r].sort((a,b) => (b.appliedDate || '').localeCompare(a.appliedDate || ''));
-    return r;
-  }, [companies, query, tierFilter, statusFilter, sortBy]);
+  const filtered = useMemo(
+    () => filterCompanies(companies, filters),
+    [companies, filters]
+  );
 
   const grouped = useMemo(() => {
-    if (tierFilter !== 'all') return [{ tier: TIERS.find(t => t.id === tierFilter), items: filtered }];
-    return TIERS.map(t => ({ tier: t, items: filtered.filter(c => c.tier === t.id) })).filter(g => g.items.length);
-  }, [filtered, tierFilter]);
+    if (filters.tierFilter !== 'all') {
+      return [{ tier: TIERS.find((t) => t.id === filters.tierFilter), items: filtered }];
+    }
+    return TIERS.map((t) => ({
+      tier: t,
+      items: filtered.filter((c) => c.tier === t.id),
+    })).filter((g) => g.items.length);
+  }, [filtered, filters.tierFilter]);
+
+  const filterSummary = getFilterSummary(filters);
+  const sortLabel = SORT_LABELS[filters.sortBy] || filters.sortBy;
 
   const openCareer = async (c) => {
     if (!c.careerUrl) {
@@ -57,7 +59,7 @@ export default function CompanyTable({
         setState((s) => ({
           ...s,
           companies: s.companies.map((co) =>
-            co.id === c.id ? { ...co, roleSearch: meta } : co
+            co.id === c.id ? mergeCompanyWithActivity(co, { roleSearch: meta }) : co
           ),
         }));
         const countMsg = meta.matchCount != null
@@ -74,15 +76,28 @@ export default function CompanyTable({
     <div className="jcc-fade-in jcc-page">
       <div className="jcc-page-header">
         <div>
-          <h1 className="jcc-page-title">Companies</h1>
+          <h1 className="jcc-page-title">
+            {filters.followUpQueue ? 'Follow-up queue' : 'Companies'}
+          </h1>
           <p className="jcc-page-sub">
-            <span className="jcc-num">{filtered.length}</span> of <span className="jcc-num">{companies.length}</span> shown · sorted by {sortBy}
+            <span className="jcc-num">{filtered.length}</span> of <span className="jcc-num">{companies.length}</span> shown
+            {filterSummary.length > 0 && <> · {filterSummary.join(' · ')}</>}
+            {' · '}sorted by {sortLabel}
             {prefs.smartSearchMode && ' · Smart Search on'}
           </p>
         </div>
-        <button type="button" className="jcc-btn jcc-btn-primary" onClick={onAddCompany}>
-          <Plus size={14}/> Add company
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`jcc-btn ${filters.followUpQueue ? 'jcc-btn-primary' : ''}`}
+            onClick={onOpenFollowUpQueue}
+          >
+            <Bell size={14}/> Follow-up queue
+          </button>
+          <button type="button" className="jcc-btn jcc-btn-primary" onClick={onAddCompany}>
+            <Plus size={14}/> Add company
+          </button>
+        </div>
       </div>
 
       <div className="jcc-card" style={{ padding: 14, marginBottom: 18 }}>
@@ -90,23 +105,25 @@ export default function CompanyTable({
       </div>
 
       <Filters
-        query={query}
-        setQuery={setQuery}
-        tierFilter={tierFilter}
-        setTierFilter={setTierFilter}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
+        filters={filters}
+        onChange={setFilters}
+        onClear={onClearFilters}
       />
 
       {grouped.length === 0 ? (
         <div className="jcc-card" style={{ padding: 48, textAlign:'center', color:'var(--ink-3)' }}>
           <Inbox size={28} style={{ color:'var(--ink-4)', marginBottom: 12 }}/>
           <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>No companies match those filters.</div>
-          <div style={{ fontSize: 12.5 }}>Try clearing filters or searching for something different.</div>
+          <div style={{ fontSize: 12.5, marginBottom: hasActiveFilters(filters) ? 14 : 0 }}>
+            Try clearing filters or searching for something different.
+          </div>
+          {hasActiveFilters(filters) && (
+            <button type="button" className="jcc-btn" onClick={onClearFilters}>
+              Clear filters
+            </button>
+          )}
         </div>
-      ) : grouped.map(g => (
+      ) : grouped.map((g) => (
         <div key={g.tier.id} style={{ marginBottom: 28 }}>
           <div style={{ display:'flex', alignItems:'center', gap: 10, marginBottom: 12 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: g.tier.accent }}/>
@@ -114,7 +131,7 @@ export default function CompanyTable({
             <span className="jcc-num" style={{ fontSize: 12, color:'var(--ink-4)' }}>{g.items.length}</span>
           </div>
           <div className="jcc-company-grid">
-            {g.items.map(c => (
+            {g.items.map((c) => (
               <CompanyCard key={c.id} company={c}
                 smartSearchMode={prefs.smartSearchMode}
                 searchPreferences={prefs}

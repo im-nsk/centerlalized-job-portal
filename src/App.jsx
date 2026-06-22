@@ -1,12 +1,19 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useStorage } from './utils/storage.js';
-import { registerScrollContext } from './utils/externalNav.js';
+import { isSupabaseConfigured } from './lib/supabase.js';
+import { SYNC_STATUS } from './utils/syncStatus.js';
+import { useCompanyFilters } from './hooks/useCompanyFilters.js';
 import { getActiveTab, saveActiveTab } from './utils/scrollPosition.js';
+import { registerScrollContext } from './utils/externalNav.js';
 import { useScrollRestore } from './hooks/useScrollRestore.js';
 import { GlobalStyles } from './components/ui/GlobalStyles.jsx';
 import { Toast } from './components/ui/Toast.jsx';
 import { LoadingSpinner } from './components/ui/LoadingSpinner.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
+import ConfigErrorScreen from './components/ConfigErrorScreen.jsx';
+import LoadErrorScreen from './components/LoadErrorScreen.jsx';
+import SyncErrorBanner from './components/SyncErrorBanner.jsx';
+import SessionExpiredModal from './components/SessionExpiredModal.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import GlobalSearch from './components/GlobalSearch.jsx';
 import Dashboard from './components/Dashboard.jsx';
@@ -29,9 +36,20 @@ const TAB_LABELS = {
 };
 
 export default function App() {
+  if (!isSupabaseConfigured()) {
+    return <ConfigErrorScreen/>;
+  }
+
+  return <AppShell/>;
+}
+
+function AppShell() {
   const {
-    state, setState, loaded, authReady, user, signInWithGoogle, signOut,
+    state, setState, loaded, authReady, user, loadError,
+    syncStatus, syncError, lastSavedAt, sessionExpired,
+    signInWithGoogle, signOut, retrySave, retryLoad,
   } = useStorage();
+  const { filters, setFilters, applyPreset, clearFilters } = useCompanyFilters();
   const [tab, setTab] = useState(() => getActiveTab() || 'dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openCompanyId, setOpenCompanyId] = useState(null);
@@ -41,6 +59,9 @@ export default function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [retryingSave, setRetryingSave] = useState(false);
+  const [retryingLoad, setRetryingLoad] = useState(false);
+  const [sessionModalDismissed, setSessionModalDismissed] = useState(false);
   const mainRef = useRef(null);
   const tabRef = useRef(tab);
 
@@ -63,6 +84,16 @@ export default function App() {
     setSidebarOpen(false);
   }, []);
 
+  const viewCompaniesWithPreset = useCallback((presetKey) => {
+    applyPreset(presetKey);
+    setTab('companies');
+    setSidebarOpen(false);
+  }, [applyPreset]);
+
+  const openFollowUpQueue = useCallback(() => {
+    applyPreset('followup');
+  }, [applyPreset]);
+
   useEffect(() => {
     const h = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setShowSearch(true); }
@@ -79,6 +110,10 @@ export default function App() {
     document.body.style.overflow = sidebarOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [sidebarOpen]);
+
+  useEffect(() => {
+    if (sessionExpired) setSessionModalDismissed(false);
+  }, [sessionExpired]);
 
   const searchResults = useMemo(() => {
     if (!globalQuery || !state) return [];
@@ -143,6 +178,16 @@ export default function App() {
     }
   }, [signInWithGoogle]);
 
+  const handleSessionReauth = useCallback(async () => {
+    setSigningIn(true);
+    try {
+      await signInWithGoogle();
+    } catch (e) {
+      setToast(e.message || 'Sign-in failed');
+      setSigningIn(false);
+    }
+  }, [signInWithGoogle]);
+
   const handleSignOut = useCallback(async () => {
     try {
       await signOut();
@@ -151,6 +196,30 @@ export default function App() {
       setToast('Sign out failed');
     }
   }, [signOut]);
+
+  const handleRetrySave = useCallback(async () => {
+    setRetryingSave(true);
+    try {
+      const ok = await retrySave();
+      if (ok) setToast('Changes saved');
+      else if (!sessionExpired) setToast('Save failed — try again');
+    } finally {
+      setRetryingSave(false);
+    }
+  }, [retrySave, sessionExpired]);
+
+  const handleRetryLoad = useCallback(async () => {
+    setRetryingLoad(true);
+    try {
+      await retryLoad();
+    } finally {
+      setRetryingLoad(false);
+    }
+  }, [retryLoad]);
+
+  const showSyncErrorBanner = syncStatus === SYNC_STATUS.ERROR
+    && syncError
+    && !sessionExpired;
 
   if (!authReady) {
     return (
@@ -172,7 +241,7 @@ export default function App() {
     );
   }
 
-  if (!loaded || !state) {
+  if (!loaded) {
     return (
       <div className="jcc" style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--surface-2)', flexDirection:'column', gap:12 }}>
         <GlobalStyles/>
@@ -182,10 +251,46 @@ export default function App() {
     );
   }
 
+  if (loadError) {
+    return (
+      <LoadErrorScreen
+        message={loadError}
+        onRetry={handleRetryLoad}
+        retrying={retryingLoad}
+      />
+    );
+  }
+
+  if (!state) {
+    return (
+      <LoadErrorScreen
+        message="Your workspace could not be loaded."
+        onRetry={handleRetryLoad}
+        retrying={retryingLoad}
+      />
+    );
+  }
+
   return (
-    <div className="jcc jcc-app-shell">
+    <div className="jcc jcc-app-root">
       <GlobalStyles/>
 
+      {showSyncErrorBanner && (
+        <SyncErrorBanner
+          message={syncError}
+          onRetry={handleRetrySave}
+          retrying={retryingSave}
+        />
+      )}
+
+      {sessionExpired && !sessionModalDismissed && (
+        <SessionExpiredModal
+          onSignIn={handleSessionReauth}
+          onDismiss={() => setSessionModalDismissed(true)}
+        />
+      )}
+
+      <div className="jcc-app-shell">
       <div
         className={`jcc-sidebar-backdrop ${sidebarOpen ? 'jcc-sidebar-backdrop--visible' : ''}`}
         onClick={() => setSidebarOpen(false)}
@@ -200,8 +305,11 @@ export default function App() {
         followupsDue={followupsDue}
         interviewsActive={interviewsActive}
         onShowSearch={() => { setShowSearch(true); setSidebarOpen(false); }}
+        onOpenFollowUpQueue={() => viewCompaniesWithPreset('followup')}
         mobileOpen={sidebarOpen}
         onCloseMobile={() => setSidebarOpen(false)}
+        syncStatus={syncStatus}
+        lastSavedAt={lastSavedAt}
       />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
@@ -226,8 +334,20 @@ export default function App() {
         </header>
 
         <main ref={mainRef} className="jcc-main jcc-scroll">
-          {tab === 'dashboard'  && <Dashboard state={state} onJump={navigate} onOpenCompany={setOpenCompanyId}/>}
-          {tab === 'companies'  && <CompanyTable state={state} setState={setState} onOpenCompany={setOpenCompanyId} onAddCompany={() => setShowAdd(true)} onToast={setToast}/>}
+          {tab === 'dashboard'  && <Dashboard state={state} onJump={navigate} onOpenCompany={setOpenCompanyId} onViewCompanies={viewCompaniesWithPreset}/>}
+          {tab === 'companies'  && (
+            <CompanyTable
+              state={state}
+              setState={setState}
+              onOpenCompany={setOpenCompanyId}
+              onAddCompany={() => setShowAdd(true)}
+              onToast={setToast}
+              filters={filters}
+              setFilters={setFilters}
+              onClearFilters={clearFilters}
+              onOpenFollowUpQueue={openFollowUpQueue}
+            />
+          )}
           {tab === 'pipeline'   && <PipelineView state={state} setState={setState} onOpenCompany={setOpenCompanyId}/>}
           {tab === 'prep'       && <PrepView state={state} setState={setState}/>}
           {tab === 'templates'  && <TemplatesView state={state} setState={setState} onToast={setToast}/>}
@@ -256,6 +376,7 @@ export default function App() {
       />
 
       <Toast message={toast} onDone={handleToastDone}/>
+      </div>
     </div>
   );
 }

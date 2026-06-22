@@ -107,6 +107,7 @@ export const buildCompany = (c) => ({
   appliedDate: null, followUpDate: null, contactName: '', referralStatus: 'none',
   interviewNotes: '', notes: '', salaryExpectation: '', tags: [], status: 'not_started',
   prepChecklist: defaultPrepChecklist(),
+  activityLog: [],
   roleSearch: { lastCheckedAt: null, matchCount: null, topRole: null, termsSearched: 0, lastQuery: null },
   ...c,
 });

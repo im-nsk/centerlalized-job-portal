@@ -28,7 +28,8 @@ export function GlobalStyles() {
     .jcc-num  { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 
     /* Layout */
-    .jcc-app-shell { height: 100vh; height: 100dvh; display: flex; overflow: hidden; background: var(--surface-2); }
+    .jcc-app-root { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--surface-2); }
+    .jcc-app-shell { flex: 1; min-height: 0; display: flex; overflow: hidden; background: var(--surface-2); }
     .jcc-main { flex: 1; overflow: auto; overflow-x: hidden; background: var(--surface-2); -webkit-overflow-scrolling: touch; }
     .jcc-page { padding: 28px 32px; max-width: 1400px; margin: 0 auto; width: 100%; }
     .jcc-page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
@@ -145,6 +146,24 @@ export function GlobalStyles() {
     /* Spinner */
     .jcc-spinner { display: inline-block; border: 2px solid var(--hairline); border-top-color: var(--secondary);
                    border-radius: 50%; animation: jccSpin .65s linear infinite; flex-shrink: 0; }
+    .jcc-spin-icon { animation: jccSpin .75s linear infinite; flex-shrink: 0; }
+    @keyframes jccPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+    .jcc-sync-banner { flex-shrink: 0; z-index: 100;
+                       background: #FEF2F2; border-bottom: 1px solid #FECACA; }
+    .jcc-sync-banner-inner { display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+                              max-width: 1400px; margin: 0 auto; }
+    .jcc-sync-banner-text { font-size: 13px; color: #991B1B; line-height: 1.4; flex: 1; min-width: 0; }
+
+    .jcc-timeline { display: flex; flex-direction: column; }
+    .jcc-timeline-item { display: flex; gap: 12px; }
+    .jcc-timeline-rail { display: flex; flex-direction: column; align-items: center; width: 14px; flex-shrink: 0; padding-top: 4px; }
+    .jcc-timeline-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid; flex-shrink: 0; }
+    .jcc-timeline-line { width: 2px; flex: 1; min-height: 12px; background: var(--hairline); margin-top: 4px; }
+    .jcc-timeline-body { flex: 1; min-width: 0; }
+    @media (max-width: 768px) {
+      .jcc-sync-banner-inner { padding: 10px 12px; flex-wrap: wrap; }
+    }
   @keyframes jccSpin { to { transform: rotate(360deg); } }
 
     .jcc-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
