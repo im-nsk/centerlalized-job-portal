@@ -3,6 +3,7 @@ import { Plus, Inbox } from 'lucide-react';
 import { TIERS } from '../data/constants.js';
 import { liEmployees, liRecruiters } from '../utils/helpers.js';
 import { openSmartCareerSearch } from '../utils/careerSearch.js';
+import { openExternalUrl } from '../utils/externalNav.js';
 import Filters from './Filters.jsx';
 import CompanyCard from './CompanyCard.jsx';
 import RoleFocusSelector from './RoleFocusSelector.jsx';
@@ -15,6 +16,7 @@ export default function CompanyTable({
   const [tierFilter, setTierFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('priority');
+  const [loadingCareerId, setLoadingCareerId] = useState(null);
 
   const prefs = searchPreferences || { roleFocus: 'data_plus_ai', smartSearchMode: true };
 
@@ -46,33 +48,38 @@ export default function CompanyTable({
       onToast('No career portal URL configured');
       return;
     }
+    setLoadingCareerId(c.id);
     onToast('Opening smart role search…');
-    const meta = await openSmartCareerSearch(c, prefs);
-    if (meta) {
-      setState((s) => ({
-        ...s,
-        companies: s.companies.map((co) =>
-          co.id === c.id ? { ...co, roleSearch: meta } : co
-        ),
-      }));
-      const countMsg = meta.matchCount != null
-        ? `${meta.matchCount} matching role${meta.matchCount !== 1 ? 's' : ''} found`
-        : `${meta.termsSearched} titles searched`;
-      onToast(`${countMsg} · ${meta.topRole || 'Multi-role'}`);
+    try {
+      const meta = await openSmartCareerSearch(c, prefs);
+      if (meta) {
+        setState((s) => ({
+          ...s,
+          companies: s.companies.map((co) =>
+            co.id === c.id ? { ...co, roleSearch: meta } : co
+          ),
+        }));
+        const countMsg = meta.matchCount != null
+          ? `${meta.matchCount} matching role${meta.matchCount !== 1 ? 's' : ''} found`
+          : `${meta.termsSearched} titles searched`;
+        onToast(`${countMsg} · ${meta.topRole || 'Multi-role'}`);
+      }
+    } finally {
+      setLoadingCareerId(null);
     }
   };
 
   return (
-    <div className="jcc-fade-in" style={{ padding: '28px 32px', maxWidth: 1400, margin: '0 auto' }}>
-      <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom: 22 }}>
+    <div className="jcc-fade-in jcc-page">
+      <div className="jcc-page-header">
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing:'-0.02em', margin: 0 }}>Companies</h1>
-          <p style={{ color:'var(--ink-3)', fontSize: 13, margin: '4px 0 0' }}>
+          <h1 className="jcc-page-title">Companies</h1>
+          <p className="jcc-page-sub">
             <span className="jcc-num">{filtered.length}</span> of <span className="jcc-num">{companies.length}</span> shown · sorted by {sortBy}
             {prefs.smartSearchMode && ' · Smart Search on'}
           </p>
         </div>
-        <button className="jcc-btn jcc-btn-primary" onClick={onAddCompany}>
+        <button type="button" className="jcc-btn jcc-btn-primary" onClick={onAddCompany}>
           <Plus size={14}/> Add company
         </button>
       </div>
@@ -105,15 +112,16 @@ export default function CompanyTable({
             <h3 style={{ fontSize: 12, fontWeight: 600, color:'var(--ink-2)', letterSpacing:'.04em', textTransform:'uppercase', margin: 0 }}>{g.tier.label}</h3>
             <span className="jcc-num" style={{ fontSize: 12, color:'var(--ink-4)' }}>{g.items.length}</span>
           </div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(340px, 1fr))', gap: 12 }}>
+          <div className="jcc-company-grid">
             {g.items.map(c => (
               <CompanyCard key={c.id} company={c}
                 smartSearchMode={prefs.smartSearchMode}
                 searchPreferences={prefs}
+                careerLoading={loadingCareerId === c.id}
                 onOpen={() => onOpenCompany(c.id)}
                 onCareer={() => openCareer(c)}
-                onEmployees={() => { window.open(liEmployees(c.name), '_blank', 'noopener,noreferrer'); onToast('Opened LinkedIn employee search'); }}
-                onRecruiters={() => { window.open(liRecruiters(c.name), '_blank', 'noopener,noreferrer'); onToast('Opened LinkedIn recruiter search'); }}
+                onEmployees={() => { openExternalUrl(liEmployees(c.name)); onToast('Opened LinkedIn employee search'); }}
+                onRecruiters={() => { openExternalUrl(liRecruiters(c.name)); onToast('Opened LinkedIn recruiter search'); }}
               />
             ))}
           </div>

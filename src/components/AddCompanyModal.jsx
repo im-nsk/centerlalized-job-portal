@@ -28,7 +28,7 @@ export default function AddCompanyModal({ onClose, onSave }) {
           <Field label="Company name *">
             <input className="jcc-input" autoFocus value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}/>
           </Field>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12 }}>
+          <div className="jcc-form-row-2">
             <Field label="Tier">
               <select className="jcc-input" value={form.tier} onChange={e => setForm({ ...form, tier: e.target.value })}>
                 {TIERS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
@@ -40,7 +40,7 @@ export default function AddCompanyModal({ onClose, onSave }) {
               </select>
             </Field>
           </div>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12 }}>
+          <div className="jcc-form-row-2">
             <Field label="Priority score (0-100)">
               <input type="number" min={0} max={100} className="jcc-input" value={form.priorityScore} onChange={e => setForm({ ...form, priorityScore: parseInt(e.target.value) || 0 })}/>
             </Field>

@@ -24,13 +24,13 @@ export default function PrepView({ state, setState }) {
   const story = starStories.find(s => s.id === activeStory) || starStories[0];
 
   return (
-    <div className="jcc-fade-in" style={{ padding:'28px 32px', maxWidth: 1400, margin:'0 auto' }}>
+    <div className="jcc-fade-in jcc-page">
       <div style={{ marginBottom: 22 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing:'-0.02em', margin: 0 }}>Interview Prep</h1>
-        <p style={{ color:'var(--ink-3)', fontSize: 13, margin: '4px 0 0' }}>STAR story bank · keep 6+ stories ready</p>
+        <h1 className="jcc-page-title">Interview Prep</h1>
+        <p className="jcc-page-sub">STAR story bank · keep 6+ stories ready</p>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'280px 1fr', gap: 16 }}>
+      <div className="jcc-split-layout">
         <div className="jcc-card" style={{ padding: 12, height:'fit-content' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'4px 8px 12px' }}>
             <span style={{ fontSize: 12, fontWeight: 600, color:'var(--ink-3)', textTransform:'uppercase', letterSpacing:'.04em' }}>Stories ({starStories.length})</span>

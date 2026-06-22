@@ -3,6 +3,7 @@ import {
   PROFILE_ROLE_PRIORITY,
   SMART_SEARCH_ROLES,
 } from '../data/roles.js';
+import { openExternalUrl } from './externalNav.js';
 
 const QUERY_PARAM_NAMES = [
   'q', 'query', 'keywords', 'search', 'base_query', 'jobsearch', '_search',
@@ -207,7 +208,7 @@ export async function openSmartCareerSearch(company, preferences) {
     lastQuery: query,
   };
 
-  window.open(url, '_blank', 'noopener,noreferrer');
+  openExternalUrl(url);
   return meta;
 }
 

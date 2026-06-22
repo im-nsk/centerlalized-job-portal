@@ -31,11 +31,11 @@ export default function PipelineView({ state, setState, onOpenCompany }) {
   };
 
   return (
-    <div className="jcc-fade-in" style={{ padding:'28px 32px', display:'flex', flexDirection:'column', height:'100%' }}>
-      <div style={{ marginBottom: 22, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+    <div className="jcc-fade-in jcc-page" style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+      <div className="jcc-page-header">
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing:'-0.02em', margin: 0 }}>Pipeline</h1>
-          <p style={{ color:'var(--ink-3)', fontSize: 13, margin: '4px 0 0' }}>Drag cards across stages · click any card to open</p>
+          <h1 className="jcc-page-title">Pipeline</h1>
+          <p className="jcc-page-sub">Drag cards across stages · click any card to open</p>
         </div>
         <div style={{ display:'flex', gap: 6 }}>
           <Pill color="var(--ink-3)" bg="var(--surface-3)" border="var(--hairline)">

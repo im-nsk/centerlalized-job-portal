@@ -50,10 +50,10 @@ export default function SettingsView({ state, setState, onToast, user, onSignOut
   };
 
   return (
-    <div className="jcc-fade-in" style={{ padding:'28px 32px', maxWidth: 900, margin:'0 auto' }}>
+    <div className="jcc-fade-in jcc-page" style={{ maxWidth: 900 }}>
       <div style={{ marginBottom: 22 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing:'-0.02em', margin: 0 }}>Settings</h1>
-        <p style={{ color:'var(--ink-3)', fontSize: 13, margin: '4px 0 0' }}>Export, restore, customize</p>
+        <h1 className="jcc-page-title">Settings</h1>
+        <p className="jcc-page-sub">Export, restore, customize</p>
       </div>
 
       {user && (

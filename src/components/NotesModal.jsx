@@ -6,18 +6,21 @@ import {
 import { STATUSES, TIERS, COMP_TIERS } from '../data/constants.js';
 import { fmtDate, daysSince, todayISO, liEmployees, liRecruiters, cls } from '../utils/helpers.js';
 import { openSmartCareerSearch } from '../utils/careerSearch.js';
+import { openExternalUrl } from '../utils/externalNav.js';
 import { TierBadge } from './ui/TierBadge.jsx';
 import { StatusBadge } from './ui/StatusBadge.jsx';
 import { Pill } from './ui/Pill.jsx';
 import { Field } from './ui/Field.jsx';
 import { DetailMetric } from './ui/DetailMetric.jsx';
 import RoleSearchStats from './RoleSearchStats.jsx';
+import { LoadingSpinner } from './ui/LoadingSpinner.jsx';
 
 export default function NotesModal({
   company, allTags, searchPreferences, onClose, onUpdate, onDelete, onToast,
 }) {
   const [tab, setTab] = useState('overview');
   const [draft, setDraft] = useState(company);
+  const [rolesLoading, setRolesLoading] = useState(false);
 
   useEffect(() => { setDraft(company); }, [company?.id]);
 
@@ -47,12 +50,17 @@ export default function NotesModal({
       onToast?.('No career portal URL configured');
       return;
     }
-    const meta = await openSmartCareerSearch(draft, prefs);
-    if (meta) {
-      update({ roleSearch: meta });
-      onToast?.(meta.matchCount != null
-        ? `${meta.matchCount} roles found · ${meta.topRole}`
-        : `Searching ${meta.termsSearched} titles`);
+    setRolesLoading(true);
+    try {
+      const meta = await openSmartCareerSearch(draft, prefs);
+      if (meta) {
+        update({ roleSearch: meta });
+        onToast?.(meta.matchCount != null
+          ? `${meta.matchCount} roles found · ${meta.topRole}`
+          : `Searching ${meta.termsSearched} titles`);
+      }
+    } finally {
+      setRolesLoading(false);
     }
   };
 
@@ -85,7 +93,7 @@ export default function NotesModal({
           <button onClick={onClose} className="jcc-btn jcc-btn-ghost" style={{ padding: 6 }}><X size={16}/></button>
         </div>
 
-        <div style={{ display:'flex', gap: 4, padding:'8px 24px 0', borderBottom:'1px solid var(--hairline)' }}>
+        <div className="jcc-modal-tabs">
           {[
             { id:'overview', label:'Overview', icon: Inbox },
             { id:'tracker',  label:'Tracker',  icon: Target },
@@ -93,13 +101,7 @@ export default function NotesModal({
             { id:'notes',    label:'Notes',    icon: FileText },
             { id:'edit',     label:'Edit',     icon: Edit3 },
           ].map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
-              border:'none', background:'transparent', cursor:'pointer',
-              padding:'10px 12px', fontSize: 12.5, fontWeight: 500,
-              color: tab === t.id ? 'var(--primary)' : 'var(--ink-3)',
-              borderBottom: tab === t.id ? '2px solid var(--primary)' : '2px solid transparent',
-              marginBottom: -1, display:'flex', alignItems:'center', gap:6, transition:'color .12s'
-            }}>
+            <button key={t.id} type="button" onClick={() => setTab(t.id)} className={cls('jcc-modal-tab', tab === t.id && 'jcc-modal-tab--active')}>
               <t.icon size={13}/> {t.label}
             </button>
           ))}
@@ -114,22 +116,22 @@ export default function NotesModal({
                 preferences={prefs}
               />
 
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap: 8 }}>
-                <button className="jcc-btn jcc-btn-primary" onClick={viewRoles} style={{ justifyContent:'center' }}>
-                  <Sparkles size={13}/> Smart View Roles
+              <div className="jcc-action-grid-4">
+                <button type="button" className="jcc-btn jcc-btn-primary" onClick={viewRoles} disabled={rolesLoading} style={{ justifyContent:'center' }}>
+                  {rolesLoading ? <LoadingSpinner size={14}/> : <Sparkles size={13}/>} Smart View Roles
                 </button>
-                <button className="jcc-btn" onClick={() => window.open(liEmployees(draft.name), '_blank')} style={{ justifyContent:'center' }}>
+                <button type="button" className="jcc-btn" onClick={() => openExternalUrl(liEmployees(draft.name))} style={{ justifyContent:'center' }}>
                   <Users size={13}/> Find Employees
                 </button>
-                <button className="jcc-btn" onClick={() => window.open(liRecruiters(draft.name), '_blank')} style={{ justifyContent:'center' }}>
+                <button type="button" className="jcc-btn" onClick={() => openExternalUrl(liRecruiters(draft.name))} style={{ justifyContent:'center' }}>
                   <UserSearch size={13}/> Find Recruiters
                 </button>
-                <button className="jcc-btn jcc-btn-secondary" onClick={markApplied} style={{ justifyContent:'center' }}>
+                <button type="button" className="jcc-btn jcc-btn-secondary" onClick={markApplied} style={{ justifyContent:'center' }}>
                   <Send size={13}/> Mark Applied
                 </button>
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap: 12 }}>
+              <div className="jcc-metrics-row">
                 <DetailMetric label="Status" value={<StatusBadge statusId={draft.status}/>}/>
                 <DetailMetric label="Applied" value={fmtDate(draft.appliedDate)} hint={draft.appliedDate ? `${daysSince(draft.appliedDate)}d ago` : null}/>
                 <DetailMetric label="Follow-up" value={fmtDate(draft.followUpDate)} accent={draft.followUpDate && new Date(draft.followUpDate) <= new Date() ? '#D97706' : null}/>
@@ -170,7 +172,7 @@ export default function NotesModal({
                   {STATUSES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                 </select>
               </Field>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12 }}>
+              <div className="jcc-form-row-2">
                 <Field label="Applied date">
                   <input type="date" className="jcc-input" value={draft.appliedDate || ''} onChange={e => update({ appliedDate: e.target.value })}/>
                 </Field>
@@ -178,7 +180,7 @@ export default function NotesModal({
                   <input type="date" className="jcc-input" value={draft.followUpDate || ''} onChange={e => update({ followUpDate: e.target.value })}/>
                 </Field>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12 }}>
+              <div className="jcc-form-row-2">
                 <Field label="Contact name">
                   <input className="jcc-input" placeholder="Recruiter / referral / hiring manager" value={draft.contactName} onChange={e => update({ contactName: e.target.value })}/>
                 </Field>
@@ -251,7 +253,7 @@ export default function NotesModal({
           {tab === 'edit' && (
             <div style={{ display:'flex', flexDirection:'column', gap: 12 }}>
               <Field label="Company name"><input className="jcc-input" value={draft.name} onChange={e => update({ name: e.target.value })}/></Field>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12 }}>
+              <div className="jcc-form-row-2">
                 <Field label="Tier">
                   <select className="jcc-input" value={draft.tier} onChange={e => update({ tier: e.target.value })}>
                     {TIERS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
@@ -263,7 +265,7 @@ export default function NotesModal({
                   </select>
                 </Field>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12 }}>
+              <div className="jcc-form-row-2">
                 <Field label="Priority score (0-100)">
                   <input type="number" min={0} max={100} className="jcc-input" value={draft.priorityScore} onChange={e => update({ priorityScore: parseInt(e.target.value) || 0 })}/>
                 </Field>

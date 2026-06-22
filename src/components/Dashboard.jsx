@@ -68,7 +68,7 @@ export default function Dashboard({ state, onJump, onOpenCompany }) {
   );
 
   return (
-    <div className="jcc-fade-in" style={{ padding: '28px 32px', maxWidth: 1400, margin: '0 auto' }}>
+    <div className="jcc-fade-in jcc-page">
       <div style={{ marginBottom: 28 }}>
         <div style={{ fontSize: 12, color:'var(--ink-3)', fontWeight: 500, letterSpacing:'.04em', textTransform:'uppercase', marginBottom: 6 }}>
           Command Center · {new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long' })}
@@ -82,7 +82,7 @@ export default function Dashboard({ state, onJump, onOpenCompany }) {
         </p>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap: 12, marginBottom: 24 }}>
+      <div className="jcc-stat-grid">
         <StatCard icon={Building2}    label="Companies"   value={stats.total}     hint="In database"                     accent="var(--primary)" onClick={() => onJump('companies')} />
         <StatCard icon={Send}         label="Applied"     value={stats.applied}   hint={`${Math.round(stats.applied/stats.total*100) || 0}% of database`} accent="var(--secondary)" />
         <StatCard icon={Activity}     label="Pending"     value={stats.pending}   hint="Awaiting response"               accent="#A855F7" />
@@ -91,7 +91,7 @@ export default function Dashboard({ state, onJump, onOpenCompany }) {
         <StatCard icon={Bell}         label="Follow-ups"  value={stats.followups.length} hint="Due today"                       accent={stats.followups.length > 0 ? '#D97706' : 'var(--ink-4)'} />
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div className="jcc-grid-2col">
         <div className="jcc-card" style={{ padding: 20 }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 18 }}>
             <div>
@@ -153,7 +153,7 @@ export default function Dashboard({ state, onJump, onOpenCompany }) {
         </div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 16 }}>
+      <div className="jcc-grid-2col-equal">
         <div className="jcc-card" style={{ padding: 20 }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 14 }}>
             <h3 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Priority targets · untouched</h3>
@@ -164,10 +164,7 @@ export default function Dashboard({ state, onJump, onOpenCompany }) {
           ) : (
             <div style={{ display:'flex', flexDirection:'column' }}>
               {topUntouched.map(c => (
-                <div key={c.id} onClick={() => onOpenCompany(c.id)} style={{
-                  display:'flex', alignItems:'center', justifyContent:'space-between',
-                  padding:'10px 0', borderTop:'1px solid var(--hairline-2)', cursor:'pointer'
-                }}>
+                <div key={c.id} onClick={() => onOpenCompany(c.id)} className="jcc-list-row">
                   <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
                     <div style={{
                       width: 30, height: 30, borderRadius: 8, background: 'var(--primary-50)',
@@ -202,10 +199,7 @@ export default function Dashboard({ state, onJump, onOpenCompany }) {
               {recent.map(c => {
                 const days = daysSince(c.appliedDate);
                 return (
-                  <div key={c.id} onClick={() => onOpenCompany(c.id)} style={{
-                    display:'flex', alignItems:'center', justifyContent:'space-between',
-                    padding:'10px 0', borderTop:'1px solid var(--hairline-2)', cursor:'pointer'
-                  }}>
+                  <div key={c.id} onClick={() => onOpenCompany(c.id)} className="jcc-list-row">
                     <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
                       <CircleDot size={14} style={{ color: getStatus(c.status).color }}/>
                       <div>

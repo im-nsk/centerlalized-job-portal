@@ -1,7 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useStorage } from './utils/storage.js';
+import { registerScrollContext } from './utils/externalNav.js';
+import { getActiveTab, saveActiveTab } from './utils/scrollPosition.js';
+import { useScrollRestore } from './hooks/useScrollRestore.js';
 import { GlobalStyles } from './components/ui/GlobalStyles.jsx';
 import { Toast } from './components/ui/Toast.jsx';
+import { LoadingSpinner } from './components/ui/LoadingSpinner.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import GlobalSearch from './components/GlobalSearch.jsx';
@@ -13,12 +17,23 @@ import TemplatesView from './components/TemplatesView.jsx';
 import SettingsView from './components/SettingsView.jsx';
 import NotesModal from './components/NotesModal.jsx';
 import AddCompanyModal from './components/AddCompanyModal.jsx';
+import { Menu, Search } from 'lucide-react';
+
+const TAB_LABELS = {
+  dashboard: 'Dashboard',
+  companies: 'Companies',
+  pipeline: 'Pipeline',
+  prep: 'Prep',
+  templates: 'Templates',
+  settings: 'Settings',
+};
 
 export default function App() {
   const {
     state, setState, loaded, authReady, user, signInWithGoogle, signOut,
   } = useStorage();
-  const [tab, setTab] = useState('dashboard');
+  const [tab, setTab] = useState(() => getActiveTab() || 'dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openCompanyId, setOpenCompanyId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [toast, setToast] = useState('');
@@ -26,15 +41,44 @@ export default function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [authError, setAuthError] = useState('');
+  const mainRef = useRef(null);
+  const tabRef = useRef(tab);
+
+  tabRef.current = tab;
+  useScrollRestore(mainRef, tab);
+
+  useEffect(() => {
+    registerScrollContext(
+      () => mainRef.current,
+      () => tabRef.current
+    );
+  }, []);
+
+  useEffect(() => {
+    saveActiveTab(tab);
+  }, [tab]);
+
+  const navigate = useCallback((nextTab) => {
+    setTab(nextTab);
+    setSidebarOpen(false);
+  }, []);
 
   useEffect(() => {
     const h = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setShowSearch(true); }
-      if (e.key === 'Escape') { setShowSearch(false); }
+      if (e.key === 'Escape') {
+        setShowSearch(false);
+        setSidebarOpen(false);
+      }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = sidebarOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [sidebarOpen]);
 
   const searchResults = useMemo(() => {
     if (!globalQuery || !state) return [];
@@ -103,15 +147,16 @@ export default function App() {
     try {
       await signOut();
       setToast('Signed out');
-    } catch (e) {
+    } catch {
       setToast('Sign out failed');
     }
   }, [signOut]);
 
   if (!authReady) {
     return (
-      <div className="jcc" style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--surface-2)' }}>
+      <div className="jcc" style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--surface-2)', flexDirection:'column', gap:12 }}>
         <GlobalStyles/>
+        <LoadingSpinner size={22}/>
         <div style={{ fontSize: 13, color:'var(--ink-3)' }}>Loading…</div>
       </div>
     );
@@ -129,35 +174,66 @@ export default function App() {
 
   if (!loaded || !state) {
     return (
-      <div className="jcc" style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--surface-2)' }}>
+      <div className="jcc" style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--surface-2)', flexDirection:'column', gap:12 }}>
         <GlobalStyles/>
+        <LoadingSpinner size={22}/>
         <div style={{ fontSize: 13, color:'var(--ink-3)' }}>Loading your data…</div>
       </div>
     );
   }
 
   return (
-    <div className="jcc" style={{ height:'100vh', display:'flex', overflow:'hidden', background:'var(--surface-2)' }}>
+    <div className="jcc jcc-app-shell">
       <GlobalStyles/>
+
+      <div
+        className={`jcc-sidebar-backdrop ${sidebarOpen ? 'jcc-sidebar-backdrop--visible' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+        aria-hidden="true"
+      />
 
       <Sidebar
         tab={tab}
-        setTab={setTab}
+        setTab={navigate}
         state={state}
         setState={setState}
         followupsDue={followupsDue}
         interviewsActive={interviewsActive}
-        onShowSearch={() => setShowSearch(true)}
+        onShowSearch={() => { setShowSearch(true); setSidebarOpen(false); }}
+        mobileOpen={sidebarOpen}
+        onCloseMobile={() => setSidebarOpen(false)}
       />
 
-      <main className="jcc-scroll" style={{ flex: 1, overflow:'auto', background:'var(--surface-2)' }}>
-        {tab === 'dashboard'  && <Dashboard state={state} onJump={setTab} onOpenCompany={setOpenCompanyId}/>}
-        {tab === 'companies'  && <CompanyTable state={state} setState={setState} onOpenCompany={setOpenCompanyId} onAddCompany={() => setShowAdd(true)} onToast={setToast}/>}
-        {tab === 'pipeline'   && <PipelineView state={state} setState={setState} onOpenCompany={setOpenCompanyId}/>}
-        {tab === 'prep'       && <PrepView state={state} setState={setState}/>}
-        {tab === 'templates'  && <TemplatesView state={state} setState={setState} onToast={setToast}/>}
-        {tab === 'settings'   && <SettingsView state={state} setState={setState} onToast={setToast} user={user} onSignOut={handleSignOut}/>}
-      </main>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+        <header className="jcc-mobile-header">
+          <button
+            type="button"
+            className="jcc-btn jcc-btn-ghost jcc-btn-sm"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu size={18}/>
+          </button>
+          <span className="jcc-mobile-header-title">{TAB_LABELS[tab] || 'Command Center'}</span>
+          <button
+            type="button"
+            className="jcc-btn jcc-btn-ghost jcc-btn-sm"
+            onClick={() => setShowSearch(true)}
+            aria-label="Search"
+          >
+            <Search size={18}/>
+          </button>
+        </header>
+
+        <main ref={mainRef} className="jcc-main jcc-scroll">
+          {tab === 'dashboard'  && <Dashboard state={state} onJump={navigate} onOpenCompany={setOpenCompanyId}/>}
+          {tab === 'companies'  && <CompanyTable state={state} setState={setState} onOpenCompany={setOpenCompanyId} onAddCompany={() => setShowAdd(true)} onToast={setToast}/>}
+          {tab === 'pipeline'   && <PipelineView state={state} setState={setState} onOpenCompany={setOpenCompanyId}/>}
+          {tab === 'prep'       && <PrepView state={state} setState={setState}/>}
+          {tab === 'templates'  && <TemplatesView state={state} setState={setState} onToast={setToast}/>}
+          {tab === 'settings'   && <SettingsView state={state} setState={setState} onToast={setToast} user={user} onSignOut={handleSignOut}/>}
+        </main>
+      </div>
 
       {openCompany && (
         <NotesModal company={openCompany} allTags={state.tags}
